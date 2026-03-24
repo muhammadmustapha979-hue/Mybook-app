@@ -1,11 +1,19 @@
-<!DOCTYPE html>
+import os
+base_dir = "/mnt/kimi/output/mybook-app-v2"
+os.makedirs(base_dir, exist_ok=True)
+
+# Complete updated HTML with all features
+html_content = '''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#059669">
-    <title>My Book - Digital Ledger</title>
+    <title>My Book Pro - Digital Ledger</title>
     <link rel="manifest" href="manifest.json">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
         * {
             margin: 0;
@@ -24,20 +32,44 @@
         .header {
             background: linear-gradient(135deg, #059669 0%, #047857 100%);
             color: white;
-            padding: 24px 20px;
+            padding: 20px;
             position: sticky;
             top: 0;
             z-index: 100;
         }
         
         .header h1 {
-            font-size: 28px;
+            font-size: 24px;
             margin-bottom: 4px;
         }
         
-        .header p {
+        .header-status {
+            font-size: 12px;
             opacity: 0.9;
-            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .sync-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .page {
+            display: none;
+        }
+        
+        .page.active {
+            display: block;
         }
         
         .balance-container {
@@ -54,19 +86,13 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         
-        .balance-card.profit {
-            border-left: 4px solid #059669;
-        }
-        
-        .balance-card.debt {
-            border-left: 4px solid #dc2626;
-        }
+        .balance-card.profit { border-left: 4px solid #059669; }
+        .balance-card.debt { border-left: 4px solid #dc2626; }
         
         .balance-label {
             font-size: 11px;
             color: #6b7280;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
             margin-bottom: 6px;
         }
         
@@ -75,13 +101,8 @@
             font-weight: bold;
         }
         
-        .positive {
-            color: #059669;
-        }
-        
-        .negative {
-            color: #dc2626;
-        }
+        .positive { color: #059669; }
+        .negative { color: #dc2626; }
         
         .quick-actions {
             display: grid;
@@ -94,49 +115,34 @@
             background: white;
             border: 2px solid #e5e7eb;
             border-radius: 16px;
-            padding: 24px 16px;
+            padding: 20px;
             text-align: center;
             cursor: pointer;
-            transition: transform 0.1s;
         }
         
-        .action-btn:active {
-            transform: scale(0.98);
-        }
+        .action-btn:active { transform: scale(0.98); }
+        .action-btn.sell { border-color: #059669; background: #ecfdf5; }
+        .action-btn.buy { border-color: #dc2626; background: #fef2f2; }
+        .action-btn.voice { border-color: #7c3aed; background: #f5f3ff; grid-column: 1 / -1; }
         
-        .action-btn.sell {
-            border-color: #059669;
-            background: #ecfdf5;
-        }
-        
-        .action-btn.buy {
-            border-color: #dc2626;
-            background: #fef2f2;
-        }
-        
-        .action-icon {
-            font-size: 36px;
-            margin-bottom: 8px;
-        }
-        
-        .action-text {
-            font-weight: 600;
-            font-size: 16px;
-            color: #374151;
-        }
+        .action-icon { font-size: 32px; margin-bottom: 8px; }
+        .action-text { font-weight: 600; font-size: 16px; }
         
         .section-header {
             padding: 20px 16px 12px;
             font-weight: 600;
             color: #374151;
-            font-size: 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         
-        .add-btn {
-            color: #059669;
+        .share-btn {
+            background: #059669;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
             font-size: 14px;
             cursor: pointer;
         }
@@ -147,9 +153,8 @@
         
         .empty-state {
             text-align: center;
-            padding: 40px 20px;
+            padding: 40px;
             color: #9ca3af;
-            font-size: 14px;
         }
         
         .transaction-item, .debt-item {
@@ -160,13 +165,11 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         
         .item-info h3 {
             font-size: 15px;
             margin-bottom: 4px;
-            color: #111827;
         }
         
         .item-meta {
@@ -179,12 +182,63 @@
             font-size: 16px;
         }
         
-        .income {
-            color: #059669;
+        .income { color: #059669; }
+        .expense { color: #dc2626; }
+        
+        /* History Page */
+        .filter-tabs {
+            display: flex;
+            padding: 0 16px;
+            gap: 8px;
+            margin-bottom: 12px;
+            overflow-x: auto;
         }
         
-        .expense {
-            color: #dc2626;
+        .filter-tab {
+            padding: 8px 16px;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 20px;
+            white-space: nowrap;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .filter-tab.active {
+            background: #059669;
+            color: white;
+            border-color: #059669;
+        }
+        
+        /* Reports Page */
+        .report-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin: 0 16px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .report-title {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+        
+        .report-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #111827;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin: 0 16px 16px;
+            height: 200px;
+            position: relative;
         }
         
         .bottom-nav {
@@ -196,7 +250,7 @@
             display: flex;
             justify-content: space-around;
             padding: 12px 0 20px;
-            box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.1);
+            box-shadow: 0 -4px 6px rgba(0,0,0,0.1);
             z-index: 100;
         }
         
@@ -207,19 +261,9 @@
             cursor: pointer;
         }
         
-        .nav-item.active {
-            color: #059669;
-        }
-        
-        .nav-icon {
-            font-size: 24px;
-            display: block;
-            margin-bottom: 2px;
-        }
-        
-        .nav-label {
-            font-size: 11px;
-        }
+        .nav-item.active { color: #059669; }
+        .nav-icon { font-size: 24px; display: block; margin-bottom: 2px; }
+        .nav-label { font-size: 11px; }
         
         .modal {
             display: none;
@@ -234,9 +278,7 @@
             align-items: flex-end;
         }
         
-        .modal.active {
-            display: flex;
-        }
+        .modal.active { display: flex; }
         
         .modal-content {
             background: white;
@@ -263,7 +305,6 @@
         .modal-title {
             font-size: 20px;
             font-weight: bold;
-            color: #111827;
         }
         
         .close-btn {
@@ -273,22 +314,15 @@
             height: 40px;
             border-radius: 50%;
             font-size: 24px;
-            color: #6b7280;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
         
-        .form-group {
-            margin-bottom: 20px;
-        }
+        .form-group { margin-bottom: 20px; }
         
         .form-label {
             display: block;
             margin-bottom: 8px;
             font-weight: 500;
-            color: #374151;
             font-size: 14px;
         }
         
@@ -298,12 +332,32 @@
             border: 2px solid #e5e7eb;
             border-radius: 12px;
             font-size: 16px;
-            transition: border-color 0.2s;
         }
         
         .form-input:focus {
             outline: none;
             border-color: #059669;
+        }
+        
+        .voice-btn {
+            width: 100%;
+            padding: 20px;
+            background: #7c3aed;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+        
+        .voice-btn.listening {
+            background: #dc2626;
+            animation: pulse 1s infinite;
         }
         
         .checkbox-group {
@@ -316,21 +370,7 @@
             margin-bottom: 20px;
         }
         
-        .checkbox-group input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            accent-color: #059669;
-        }
-        
-        .checkbox-group label {
-            font-size: 14px;
-            color: #92400e;
-            font-weight: 500;
-        }
-        
-        .hidden {
-            display: none !important;
-        }
+        .hidden { display: none !important; }
         
         .submit-btn {
             width: 100%;
@@ -342,59 +382,132 @@
             font-size: 18px;
             font-weight: 600;
             cursor: pointer;
-            margin-top: 8px;
         }
         
-        .submit-btn:active {
-            background: #047857;
+        .date-header {
+            padding: 12px 16px;
+            font-weight: 600;
+            color: #6b7280;
+            font-size: 14px;
+            background: #f3f4f6;
+            margin: 8px 16px;
+            border-radius: 8px;
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>📒 My Book</h1>
-        <p>Digital Ledger for Traders</p>
-    </div>
-    
-    <div class="balance-container">
-        <div class="balance-card profit">
-            <div class="balance-label">Today's Profit</div>
-            <div class="balance-amount positive" id="todayProfit">₦0</div>
-        </div>
-        <div class="balance-card debt">
-            <div class="balance-label">Money Owed to You</div>
-            <div class="balance-amount negative" id="totalDebt">₦0</div>
+        <h1>📒 My Book Pro</h1>
+        <div class="header-status">
+            <span class="sync-indicator"></span>
+            <span id="syncStatus">Sync active</span>
         </div>
     </div>
     
-    <div class="quick-actions">
-        <div class="action-btn sell" onclick="openModal('sell')">
-            <div class="action-icon">💰</div>
-            <div class="action-text">I Sold</div>
+    <!-- HOME PAGE -->
+    <div class="page active" id="homePage">
+        <div class="balance-container">
+            <div class="balance-card profit">
+                <div class="balance-label">Today's Profit</div>
+                <div class="balance-amount positive" id="todayProfit">₦0</div>
+            </div>
+            <div class="balance-card debt">
+                <div class="balance-label">Money Owed</div>
+                <div class="balance-amount negative" id="totalDebt">₦0</div>
+            </div>
         </div>
-        <div class="action-btn buy" onclick="openModal('buy')">
-            <div class="action-icon">🛒</div>
-            <div class="action-text">I Bought</div>
+        
+        <div class="quick-actions">
+            <div class="action-btn sell" onclick="openModal('sell')">
+                <div class="action-icon">💰</div>
+                <div class="action-text">I Sold</div>
+            </div>
+            <div class="action-btn buy" onclick="openModal('buy')">
+                <div class="action-icon">🛒</div>
+                <div class="action-text">I Bought</div>
+            </div>
+            <div class="action-btn voice" onclick="openVoiceModal()">
+                <div class="action-icon">🎤</div>
+                <div class="action-text">Tap & Speak</div>
+            </div>
+        </div>
+        
+        <div class="section-header">
+            <span>Today's Transactions</span>
+            <button class="share-btn" onclick="shareWhatsApp()">Share 📱</button>
+        </div>
+        
+        <div class="transaction-list" id="transactionList">
+            <div class="empty-state">No transactions yet</div>
+        </div>
+        
+        <div class="section-header">
+            <span>Debtors</span>
+            <span style="color: #059669; cursor: pointer;" onclick="openDebtModal()">+ Add</span>
+        </div>
+        
+        <div class="debt-list" id="debtList">
+            <div class="empty-state">No debts recorded</div>
         </div>
     </div>
     
-    <div class="section-header">
-        <span>Today's Transactions</span>
+    <!-- HISTORY PAGE -->
+    <div class="page" id="historyPage">
+        <div class="section-header">
+            <span>All Transactions</span>
+        </div>
+        
+        <div class="filter-tabs">
+            <div class="filter-tab active" onclick="filterHistory('all')">All</div>
+            <div class="filter-tab" onclick="filterHistory('sell')">Sales</div>
+            <div class="filter-tab" onclick="filterHistory('buy')">Purchases</div>
+            <div class="filter-tab" onclick="filterHistory('debt')">Debts</div>
+        </div>
+        
+        <div id="historyList"></div>
     </div>
     
-    <div class="transaction-list" id="transactionList">
-        <div class="empty-state">No transactions yet.<br>Tap "I Sold" or "I Bought" to add</div>
+    <!-- REPORTS PAGE -->
+    <div class="page" id="reportsPage">
+        <div class="section-header">
+            <span>Business Reports</span>
+            <select id="reportPeriod" onchange="updateReports()" style="padding: 8px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="year">This Year</option>
+            </select>
+        </div>
+        
+        <div class="report-card">
+            <div class="report-title">Total Sales</div>
+            <div class="report-value positive" id="reportSales">₦0</div>
+        </div>
+        
+        <div class="report-card">
+            <div class="report-title">Total Expenses</div>
+            <div class="report-value negative" id="reportExpenses">₦0</div>
+        </div>
+        
+        <div class="report-card">
+            <div class="report-title">Net Profit</div>
+            <div class="report-value" id="reportProfit">₦0</div>
+        </div>
+        
+        <div class="report-card">
+            <div class="report-title">Total Debts Owed</div>
+            <div class="report-value negative" id="reportDebts">₦0</div>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="weeklyChart"></canvas>
+        </div>
+        
+        <button class="share-btn" onclick="shareReport()" style="width: calc(100% - 32px); margin: 0 16px 20px; padding: 16px; font-size: 16px;">
+            Share Full Report on WhatsApp
+        </button>
     </div>
     
-    <div class="section-header">
-        <span>Debtors</span>
-        <span class="add-btn" onclick="openDebtModal()">+ Add New</span>
-    </div>
-    
-    <div class="debt-list" id="debtList">
-        <div class="empty-state">No debts recorded</div>
-    </div>
-    
+    <!-- Bottom Navigation -->
     <div class="bottom-nav">
         <div class="nav-item active" onclick="showPage('home')">
             <span class="nav-icon">📊</span>
@@ -410,6 +523,7 @@
         </div>
     </div>
     
+    <!-- Transaction Modal -->
     <div class="modal" id="transactionModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -418,8 +532,8 @@
             </div>
             
             <div class="form-group">
-                <label class="form-label">What did you sell/buy?</label>
-                <input type="text" class="form-input" id="itemName" placeholder="e.g., Bag of Rice, 5 loaves of bread">
+                <label class="form-label">What?</label>
+                <input type="text" class="form-input" id="itemName" placeholder="e.g., Bag of Rice">
             </div>
             
             <div class="form-group">
@@ -429,7 +543,7 @@
             
             <div class="checkbox-group">
                 <input type="checkbox" id="isDebt" onchange="toggleDebtName()">
-                <label for="isDebt">This is a credit/debt transaction</label>
+                <label for="isDebt">This is credit/debt</label>
             </div>
             
             <div class="form-group hidden" id="debtNameGroup">
@@ -441,6 +555,28 @@
         </div>
     </div>
     
+    <!-- Voice Modal -->
+    <div class="modal" id="voiceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">🎤 Voice Entry</span>
+                <button class="close-btn" onclick="closeVoiceModal()">×</button>
+            </div>
+            
+            <p style="margin-bottom: 20px; color: #6b7280;">Say something like:<br><em>"Sold 5 bags of rice for twenty five thousand"</em></p>
+            
+            <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()">
+                <span>🎤</span>
+                <span id="voiceBtnText">Tap to Speak</span>
+            </button>
+            
+            <div id="voiceResult" style="margin-top: 20px; padding: 16px; background: #f3f4f6; border-radius: 12px; display: none;">
+                <strong>Heard:</strong> <span id="heardText"></span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Debt Modal -->
     <div class="modal" id="debtModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -450,7 +586,7 @@
             
             <div class="form-group">
                 <label class="form-label">Person Name</label>
-                <input type="text" class="form-input" id="newDebtorName" placeholder="Enter full name">
+                <input type="text" class="form-input" id="newDebtorName" placeholder="Enter name">
             </div>
             
             <div class="form-group">
@@ -463,10 +599,78 @@
     </div>
 
     <script>
+        // Firebase Configuration - Replace with your own
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        
+        // Initialize Firebase
+        let db;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            document.getElementById('syncStatus').textContent = 'Cloud sync active';
+        } catch (e) {
+            console.log('Firebase not configured - using local storage only');
+            document.getElementById('syncStatus').textContent = 'Local mode';
+        }
+        
         // Data storage
         let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
         let debts = JSON.parse(localStorage.getItem('debts')) || [];
-        let currentType = 'sale';
+        let currentType = 'sell';
+        let recognition;
+        
+        // Initialize speech recognition
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.lang = 'en-NG';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('heardText').textContent = transcript;
+                document.getElementById('voiceResult').style.display = 'block';
+                parseVoiceInput(transcript);
+            };
+            
+            recognition.onerror = function(event) {
+                alert('Could not hear clearly. Please try again.');
+                stopVoice();
+            };
+            
+            recognition.onend = function() {
+                stopVoice();
+            };
+        }
+        
+        // Navigation
+        function showPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            
+            event.currentTarget.classList.add('active');
+            
+            if (page === 'home') {
+                document.getElementById('homePage').classList.add('active');
+                updateDashboard();
+                renderTransactions();
+            } else if (page === 'history') {
+                document.getElementById('historyPage').classList.add('active');
+                renderHistory('all');
+            } else if (page === 'reports') {
+                document.getElementById('reportsPage').classList.add('active');
+                updateReports();
+            }
+        }
         
         // Modal functions
         function openModal(type) {
@@ -480,6 +684,20 @@
             clearForm();
         }
         
+        function openVoiceModal() {
+            if (!recognition) {
+                alert('Voice input not supported on this device. Please type instead.');
+                return;
+            }
+            document.getElementById('voiceModal').classList.add('active');
+        }
+        
+        function closeVoiceModal() {
+            document.getElementById('voiceModal').classList.remove('active');
+            stopVoice();
+            document.getElementById('voiceResult').style.display = 'none';
+        }
+        
         function openDebtModal() {
             document.getElementById('debtModal').classList.add('active');
         }
@@ -490,20 +708,83 @@
             document.getElementById('newDebtAmount').value = '';
         }
         
+        // Voice functions
+        function toggleVoice() {
+            if (document.getElementById('voiceBtn').classList.contains('listening')) {
+                stopVoice();
+            } else {
+                startVoice();
+            }
+        }
+        
+        function startVoice() {
+            recognition.start();
+            document.getElementById('voiceBtn').classList.add('listening');
+            document.getElementById('voiceBtnText').textContent = 'Listening...';
+        }
+        
+        function stopVoice() {
+            recognition.stop();
+            document.getElementById('voiceBtn').classList.remove('listening');
+            document.getElementById('voiceBtnText').textContent = 'Tap to Speak';
+        }
+        
+        function parseVoiceInput(text) {
+            // Simple parsing - look for numbers and keywords
+            const lower = text.toLowerCase();
+            const isSell = lower.includes('sold') || lower.includes('sell') || lower.includes('sale');
+            const isBuy = lower.includes('bought') || lower.includes('buy') || lower.includes('purchase');
+            
+            // Extract numbers
+            const numbers = text.match(/\d+/g);
+            let amount = 0;
+            let quantity = 1;
+            
+            if (numbers) {
+                if (numbers.length >= 2) {
+                    quantity = parseInt(numbers[0]);
+                    amount = parseInt(numbers[numbers.length - 1]);
+                } else {
+                    amount = parseInt(numbers[0]);
+                }
+            }
+            
+            // Extract item name (words between quantity and amount)
+            const words = lower.replace(/\d+/g, '').split(' ').filter(w => w.length > 2 && !['sold','sell','sale','bought','buy','purchase','for','the','and'].includes(w));
+            const itemName = words.slice(0, 3).join(' ') || 'Unnamed item';
+            
+            if (amount > 0) {
+                setTimeout(() => {
+                    if (confirm(`Save: ${isSell ? 'Sold' : 'Bought'} ${quantity} ${itemName} for ₦${amount}?`)) {
+                        saveVoiceTransaction(isSell ? 'sell' : 'buy', itemName, amount);
+                    }
+                }, 500);
+            }
+        }
+        
+        function saveVoiceTransaction(type, name, amount) {
+            const transaction = {
+                id: Date.now(),
+                name: name,
+                amount: amount,
+                type: type,
+                isDebt: false,
+                date: new Date().toISOString()
+            };
+            
+            transactions.unshift(transaction);
+            saveData();
+            closeVoiceModal();
+            updateDashboard();
+            renderTransactions();
+        }
+        
+        // Transaction functions
         function toggleDebtName() {
             const isChecked = document.getElementById('isDebt').checked;
             document.getElementById('debtNameGroup').classList.toggle('hidden', !isChecked);
         }
         
-        function clearForm() {
-            document.getElementById('itemName').value = '';
-            document.getElementById('itemAmount').value = '';
-            document.getElementById('isDebt').checked = false;
-            document.getElementById('debtorName').value = '';
-            document.getElementById('debtNameGroup').classList.add('hidden');
-        }
-        
-        // Save transaction
         function saveTransaction() {
             const name = document.getElementById('itemName').value.trim();
             const amount = parseFloat(document.getElementById('itemAmount').value);
@@ -512,11 +793,6 @@
             
             if (!name || !amount || amount <= 0) {
                 alert('Please enter item name and valid amount');
-                return;
-            }
-            
-            if (isDebt && !debtorName) {
-                alert('Please enter the person\'s name for debt tracking');
                 return;
             }
             
@@ -531,9 +807,8 @@
             };
             
             transactions.unshift(transaction);
-            localStorage.setItem('transactions', JSON.stringify(transactions));
+            saveData();
             
-            // Add to debt list if it's a credit sale
             if (isDebt && debtorName && currentType === 'sell') {
                 addDebt(debtorName, amount);
             }
@@ -543,27 +818,22 @@
             renderTransactions();
         }
         
-        // Add debt
         function addDebt(name, amount) {
-            const existingDebt = debts.find(d => d.name.toLowerCase() === name.toLowerCase() && d.type === 'owed');
-            
-            if (existingDebt) {
-                existingDebt.amount += amount;
+            const existing = debts.find(d => d.name.toLowerCase() === name.toLowerCase());
+            if (existing) {
+                existing.amount += amount;
             } else {
                 debts.push({
                     id: Date.now(),
                     name: name,
                     amount: amount,
-                    type: 'owed',
                     date: new Date().toISOString()
                 });
             }
-            
-            localStorage.setItem('debts', JSON.stringify(debts));
+            saveData();
             renderDebts();
         }
         
-        // Save debt from modal
         function saveDebt() {
             const name = document.getElementById('newDebtorName').value.trim();
             const amount = parseFloat(document.getElementById('newDebtAmount').value);
@@ -578,40 +848,55 @@
             updateDashboard();
         }
         
-        // Update dashboard numbers
+        // Data persistence
+        function saveData() {
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+            localStorage.setItem('debts', JSON.stringify(debts));
+            
+            // Sync to Firebase if available
+            if (db) {
+                const userId = localStorage.getItem('userId') || 'user_' + Date.now();
+                localStorage.setItem('userId', userId);
+                db.ref('users/' + userId).set({
+                    transactions: transactions,
+                    debts: debts,
+                    lastSync: new Date().toISOString()
+                });
+            }
+        }
+        
+        // Dashboard
         function updateDashboard() {
             const today = new Date().toDateString();
-            const todayTransactions = transactions.filter(t => new Date(t.date).toDateString() === today);
+            const todayTrans = transactions.filter(t => new Date(t.date).toDateString() === today);
             
             let profit = 0;
-            todayTransactions.forEach(t => {
+            todayTrans.forEach(t => {
                 if (t.type === 'sell') profit += t.amount;
                 else profit -= t.amount;
             });
             
-            const totalOwed = debts
-                .filter(d => d.type === 'owed')
-                .reduce((sum, d) => sum + d.amount, 0);
+            const totalOwed = debts.reduce((sum, d) => sum + d.amount, 0);
             
-            const profitElement = document.getElementById('todayProfit');
-            profitElement.textContent = '₦' + profit.toLocaleString();
-            profitElement.className = 'balance-amount ' + (profit >= 0 ? 'positive' : 'negative');
+            const profitEl = document.getElementById('todayProfit');
+            profitEl.textContent = '₦' + profit.toLocaleString();
+            profitEl.className = 'balance-amount ' + (profit >= 0 ? 'positive' : 'negative');
             
             document.getElementById('totalDebt').textContent = '₦' + totalOwed.toLocaleString();
         }
         
-        // Render transactions
+        // Render functions
         function renderTransactions() {
             const list = document.getElementById('transactionList');
             const today = new Date().toDateString();
-            const todayTransactions = transactions.filter(t => new Date(t.date).toDateString() === today);
+            const todayTrans = transactions.filter(t => new Date(t.date).toDateString() === today);
             
-            if (todayTransactions.length === 0) {
-                list.innerHTML = '<div class="empty-state">No transactions yet.<br>Tap "I Sold" or "I Bought" to add</div>';
+            if (todayTrans.length === 0) {
+                list.innerHTML = '<div class="empty-state">No transactions today</div>';
                 return;
             }
             
-            list.innerHTML = todayTransactions.map(t => `
+            list.innerHTML = todayTrans.map(t => `
                 <div class="transaction-item">
                     <div class="item-info">
                         <h3>${t.name} ${t.isDebt ? '<span style="color:#dc2626;font-size:12px">(CREDIT)</span>' : ''}</h3>
@@ -624,48 +909,180 @@
             `).join('');
         }
         
-        // Render debts
         function renderDebts() {
             const container = document.getElementById('debtList');
-            const owedDebts = debts.filter(d => d.type === 'owed');
-            
-            if (owedDebts.length === 0) {
+            if (debts.length === 0) {
                 container.innerHTML = '<div class="empty-state">No debts recorded</div>';
                 return;
             }
             
-            container.innerHTML = owedDebts.map(d => `
+            container.innerHTML = debts.map(d => `
                 <div class="debt-item">
                     <div class="item-info">
                         <h3>${d.name}</h3>
-                        <div class="item-meta">Added ${new Date(d.date).toLocaleDateString()}</div>
+                        <div class="item-meta">${new Date(d.date).toLocaleDateString()}</div>
                     </div>
-                    <div class="item-amount expense">
-                        ₦${d.amount.toLocaleString()}
-                    </div>
+                    <div class="item-amount expense">₦${d.amount.toLocaleString()}</div>
                 </div>
             `).join('');
         }
         
-        // Navigation
-        function showPage(page) {
-            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-            event.currentTarget.classList.add('active');
-            
-            if (page === 'home') {
-                updateDashboard();
-                renderTransactions();
-                renderDebts();
-            } else {
-                alert('This feature coming soon! Home has everything you need.');
-            }
+        // HISTORY PAGE
+        function filterHistory(filter) {
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            renderHistory(filter);
         }
         
-        // Close modal when clicking outside
+        function renderHistory(filter) {
+            const container = document.getElementById('historyList');
+            let filtered = transactions;
+            
+            if (filter === 'sell') filtered = transactions.filter(t => t.type === 'sell');
+            else if (filter === 'buy') filtered = transactions.filter(t => t.type === 'buy');
+            else if (filter === 'debt') filtered = transactions.filter(t => t.isDebt);
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="empty-state">No transactions found</div>';
+                return;
+            }
+            
+            // Group by date
+            const grouped = {};
+            filtered.forEach(t => {
+                const date = new Date(t.date).toDateString();
+                if (!grouped[date]) grouped[date] = [];
+                grouped[date].push(t);
+            });
+            
+            let html = '';
+            Object.keys(grouped).sort((a,b) => new Date(b) - new Date(a)).forEach(date => {
+                html += `<div class="date-header">${date}</div>`;
+                html += grouped[date].map(t => `
+                    <div class="transaction-item">
+                        <div class="item-info">
+                            <h3>${t.name} ${t.isDebt ? '<span style="color:#dc2626;font-size:12px">(CREDIT)</span>' : ''}</h3>
+                            <div class="item-meta">${new Date(t.date).toLocaleTimeString()}</div>
+                        </div>
+                        <div class="item-amount ${t.type === 'sell' ? 'income' : 'expense'}">
+                            ${t.type === 'sell' ? '+' : '-'}₦${t.amount.toLocaleString()}
+                        </div>
+                    </div>
+                `).join('');
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // REPORTS PAGE
+        function updateReports() {
+            const period = document.getElementById('reportPeriod').value;
+            const now = new Date();
+            let startDate;
+            
+            if (period === 'week') {
+                startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            } else if (period === 'month') {
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            } else {
+                startDate = new Date(now.getFullYear(), 0, 1);
+            }
+            
+            const filtered = transactions.filter(t => new Date(t.date) >= startDate);
+            
+            const sales = filtered.filter(t => t.type === 'sell').reduce((sum, t) => sum + t.amount, 0);
+            const expenses = filtered.filter(t => t.type === 'buy').reduce((sum, t) => sum + t.amount, 0);
+            const profit = sales - expenses;
+            const totalDebts = debts.reduce((sum, d) => sum + d.amount, 0);
+            
+            document.getElementById('reportSales').textContent = '₦' + sales.toLocaleString();
+            document.getElementById('reportExpenses').textContent = '₦' + expenses.toLocaleString();
+            document.getElementById('reportProfit').textContent = '₦' + profit.toLocaleString();
+            document.getElementById('reportProfit').className = 'report-value ' + (profit >= 0 ? 'positive' : 'negative');
+            document.getElementById('reportDebts').textContent = '₦' + totalDebts.toLocaleString();
+            
+            drawChart(filtered);
+        }
+        
+        function drawChart(data) {
+            const canvas = document.getElementById('weeklyChart');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            // Simple bar chart
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const dayData = {};
+            days.forEach(d => dayData[d] = 0);
+            
+            data.filter(t => t.type === 'sell').forEach(t => {
+                const day = days[new Date(t.date).getDay()];
+                dayData[day] += t.amount;
+            });
+            
+            const max = Math.max(...Object.values(dayData)) || 1;
+            const barWidth = canvas.width / 7 - 10;
+            const scale = (canvas.height - 40) / max;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            Object.keys(dayData).forEach((day, i) => {
+                const height = dayData[day] * scale;
+                const x = i * (barWidth + 10) + 5;
+                const y = canvas.height - height - 20;
+                
+                ctx.fillStyle = '#059669';
+                ctx.fillRect(x, y, barWidth, height);
+                
+                ctx.fillStyle = '#374151';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(day, x + barWidth/2, canvas.height - 5);
+            });
+        }
+        
+        // WhatsApp Sharing
+        function shareWhatsApp() {
+            const today = new Date().toDateString();
+            const todayTrans = transactions.filter(t => new Date(t.date).toDateString() === today);
+            
+            let profit = 0;
+            todayTrans.forEach(t => {
+                if (t.type === 'sell') profit += t.amount;
+                else profit -= t.amount;
+            });
+            
+            const message = `📒 My Book - Daily Summary\\n📅 ${today}\\n💰 Profit: ₦${profit.toLocaleString()}\\n📊 Transactions: ${todayTrans.length}\\n💳 Debts: ₦${debts.reduce((s,d) => s+d.amount, 0).toLocaleString()}`;
+            
+            window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+        }
+        
+        function shareReport() {
+            const period = document.getElementById('reportPeriod').value;
+            const sales = document.getElementById('reportSales').textContent;
+            const expenses = document.getElementById('reportExpenses').textContent;
+            const profit = document.getElementById('reportProfit').textContent;
+            
+            const message = `📈 My Book - Business Report\\n📅 Period: ${period}\\n💰 Sales: ${sales}\\n💸 Expenses: ${expenses}\\n📊 Profit: ${profit}\\n\\nGenerated by My Book App`;
+            
+            window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+        }
+        
+        // Utility
+        function clearForm() {
+            document.getElementById('itemName').value = '';
+            document.getElementById('itemAmount').value = '';
+            document.getElementById('isDebt').checked = false;
+            document.getElementById('debtorName').value = '';
+            document.getElementById('debtNameGroup').classList.add('hidden');
+        }
+        
+        // Close modals on outside click
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', function(e) {
                 if (e.target === this) {
                     this.classList.remove('active');
+                    stopVoice();
                 }
             });
         });
@@ -676,4 +1093,11 @@
         renderDebts();
     </script>
 </body>
-</html>
+</html>'''
+
+# Write the HTML file
+with open(f"{base_dir}/index.html", "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+print("✅ Complete app with Voice, Cloud Sync, WhatsApp, History & Reports created!")
+print(f"Location: {base_dir}/index.html")
