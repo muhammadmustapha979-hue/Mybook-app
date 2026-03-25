@@ -1,9 +1,4 @@
-import os
-base_dir = "/mnt/kimi/output/mybook-app-v2"
-os.makedirs(base_dir, exist_ok=True)
-
-# Complete updated HTML with all features
-html_content = '''<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -185,7 +180,6 @@ html_content = '''<!DOCTYPE html>
         .income { color: #059669; }
         .expense { color: #dc2626; }
         
-        /* History Page */
         .filter-tabs {
             display: flex;
             padding: 0 16px;
@@ -210,7 +204,6 @@ html_content = '''<!DOCTYPE html>
             border-color: #059669;
         }
         
-        /* Reports Page */
         .report-card {
             background: white;
             border-radius: 16px;
@@ -400,7 +393,7 @@ html_content = '''<!DOCTYPE html>
         <h1>📒 My Book Pro</h1>
         <div class="header-status">
             <span class="sync-indicator"></span>
-            <span id="syncStatus">Sync active</span>
+            <span id="syncStatus">Local mode</span>
         </div>
     </div>
     
@@ -599,7 +592,9 @@ html_content = '''<!DOCTYPE html>
     </div>
 
     <script>
-        // Firebase Configuration - Replace with your own
+        // ==========================================
+        // FIREBASE CONFIG - REPLACE WITH YOUR KEYS
+        // ==========================================
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "YOUR_PROJECT.firebaseapp.com",
@@ -618,7 +613,6 @@ html_content = '''<!DOCTYPE html>
             document.getElementById('syncStatus').textContent = 'Cloud sync active';
         } catch (e) {
             console.log('Firebase not configured - using local storage only');
-            document.getElementById('syncStatus').textContent = 'Local mode';
         }
         
         // Data storage
@@ -730,12 +724,10 @@ html_content = '''<!DOCTYPE html>
         }
         
         function parseVoiceInput(text) {
-            // Simple parsing - look for numbers and keywords
             const lower = text.toLowerCase();
             const isSell = lower.includes('sold') || lower.includes('sell') || lower.includes('sale');
             const isBuy = lower.includes('bought') || lower.includes('buy') || lower.includes('purchase');
             
-            // Extract numbers
             const numbers = text.match(/\d+/g);
             let amount = 0;
             let quantity = 1;
@@ -749,7 +741,6 @@ html_content = '''<!DOCTYPE html>
                 }
             }
             
-            // Extract item name (words between quantity and amount)
             const words = lower.replace(/\d+/g, '').split(' ').filter(w => w.length > 2 && !['sold','sell','sale','bought','buy','purchase','for','the','and'].includes(w));
             const itemName = words.slice(0, 3).join(' ') || 'Unnamed item';
             
@@ -853,7 +844,6 @@ html_content = '''<!DOCTYPE html>
             localStorage.setItem('transactions', JSON.stringify(transactions));
             localStorage.setItem('debts', JSON.stringify(debts));
             
-            // Sync to Firebase if available
             if (db) {
                 const userId = localStorage.getItem('userId') || 'user_' + Date.now();
                 localStorage.setItem('userId', userId);
@@ -947,7 +937,6 @@ html_content = '''<!DOCTYPE html>
                 return;
             }
             
-            // Group by date
             const grouped = {};
             filtered.forEach(t => {
                 const date = new Date(t.date).toDateString();
@@ -1010,7 +999,6 @@ html_content = '''<!DOCTYPE html>
             canvas.width = canvas.offsetWidth;
             canvas.height = canvas.offsetHeight;
             
-            // Simple bar chart
             const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             const dayData = {};
             days.forEach(d => dayData[d] = 0);
@@ -1052,7 +1040,7 @@ html_content = '''<!DOCTYPE html>
                 else profit -= t.amount;
             });
             
-            const message = `📒 My Book - Daily Summary\\n📅 ${today}\\n💰 Profit: ₦${profit.toLocaleString()}\\n📊 Transactions: ${todayTrans.length}\\n💳 Debts: ₦${debts.reduce((s,d) => s+d.amount, 0).toLocaleString()}`;
+            const message = `📒 My Book - Daily Summary\n📅 ${today}\n💰 Profit: ₦${profit.toLocaleString()}\n📊 Transactions: ${todayTrans.length}\n💳 Debts: ₦${debts.reduce((s,d) => s+d.amount, 0).toLocaleString()}`;
             
             window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
         }
@@ -1063,7 +1051,7 @@ html_content = '''<!DOCTYPE html>
             const expenses = document.getElementById('reportExpenses').textContent;
             const profit = document.getElementById('reportProfit').textContent;
             
-            const message = `📈 My Book - Business Report\\n📅 Period: ${period}\\n💰 Sales: ${sales}\\n💸 Expenses: ${expenses}\\n📊 Profit: ${profit}\\n\\nGenerated by My Book App`;
+            const message = `📈 My Book - Business Report\n📅 Period: ${period}\n💰 Sales: ${sales}\n💸 Expenses: ${expenses}\n📊 Profit: ${profit}\n\nGenerated by My Book App`;
             
             window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
         }
@@ -1093,11 +1081,4 @@ html_content = '''<!DOCTYPE html>
         renderDebts();
     </script>
 </body>
-</html>'''
-
-# Write the HTML file
-with open(f"{base_dir}/index.html", "w", encoding="utf-8") as f:
-    f.write(html_content)
-
-print("✅ Complete app with Voice, Cloud Sync, WhatsApp, History & Reports created!")
-print(f"Location: {base_dir}/index.html")
+</html>
