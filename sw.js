@@ -1,10 +1,26 @@
-const CACHE_NAME = 'mybook-v1';
-const urlsToCache = ['/', '/index.html'];
+const CACHE_NAME = 'mybook-v2';
+const urlsToCache = [
+    './',
+    './index.html',
+    './manifest.json'
+];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache)));
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then(cache => cache.addAll(urlsToCache))
+    );
+    self.skipWaiting();
 });
 
 self.addEventListener('fetch', event => {
-  event.respondWith(caches.match(event.request).then(response => response || fetch(event.request)));
+    event.respondWith(
+        caches.match(event.request)
+            .then(response => {
+                if (response) {
+                    return response;
+                }
+                return fetch(event.request);
+            })
+    );
 });
