@@ -1,1 +1,1787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#059669">
+    <meta name="description" content="My Book Pro - Professional Digital Ledger for Small Businesses">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>My Book Pro - Digital Ledger</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            background: #f3f4f6;
+            color: #1f2937;
+            padding-bottom: 100px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white;
+            padding: 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+        }
+        
+        .business-switch-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .header-status {
+            font-size: 12px;
+            opacity: 0.9;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .sync-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .page {
+            display: none;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        .balance-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            padding: 16px;
+        }
+        
+        .balance-card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .balance-card.profit { border-left: 4px solid #059669; }
+        .balance-card.debt { border-left: 4px solid #dc2626; }
+        
+        .balance-label {
+            font-size: 11px;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        
+        .balance-amount {
+            font-size: 22px;
+            font-weight: bold;
+        }
+        
+        .positive { color: #059669; }
+        .negative { color: #dc2626; }
+        
+        .daily-summary {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin: 0 16px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .daily-summary h3 {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+        
+        .daily-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            text-align: center;
+        }
+        
+        .daily-stat {
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 12px;
+        }
+        
+        .daily-stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #111827;
+        }
+        
+        .daily-stat-label {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+        
+        .quick-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            padding: 0 16px 16px;
+        }
+        
+        .action-btn {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        
+        .action-btn:active { transform: scale(0.98); }
+        .action-btn.sell { border-color: #059669; background: #ecfdf5; }
+        .action-btn.buy { border-color: #dc2626; background: #fef2f2; }
+        .action-btn.voice { border-color: #7c3aed; background: #f5f3ff; grid-column: 1 / -1; }
+        
+        .action-icon { font-size: 32px; margin-bottom: 8px; }
+        .action-text { font-weight: 600; font-size: 16px; }
+        
+        .section-header {
+            padding: 20px 16px 12px;
+            font-weight: 600;
+            color: #374151;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .share-btn {
+            background: #059669;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .transaction-list, .debt-list {
+            padding: 0 16px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+        }
+        
+        .transaction-item, .debt-item {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .debt-item {
+            flex-wrap: wrap;
+        }
+        
+        .debt-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            width: 100%;
+        }
+        
+        .debt-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .debt-btn.pay {
+            background: #059669;
+            color: white;
+        }
+        
+        .debt-btn.remind {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .debt-btn.history {
+            background: #e5e7eb;
+            color: #374151;
+        }
+        
+        .item-info h3 {
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+        
+        .item-meta {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .item-amount {
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .income { color: #059669; }
+        .expense { color: #dc2626; }
+        
+        .filter-tabs {
+            display: flex;
+            padding: 0 16px;
+            gap: 8px;
+            margin-bottom: 12px;
+            overflow-x: auto;
+        }
+        
+        .filter-tab {
+            padding: 8px 16px;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 20px;
+            white-space: nowrap;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .filter-tab.active {
+            background: #059669;
+            color: white;
+            border-color: #059669;
+        }
+        
+        .date-header {
+            padding: 12px 16px;
+            font-weight: 600;
+            color: #6b7280;
+            font-size: 14px;
+            background: #f3f4f6;
+            margin: 8px 16px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .date-total {
+            font-size: 12px;
+            color: #059669;
+        }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+        <div class="header-top">
+            <h1>📒 My Book Pro</h1>
+            <button class="business-switch-btn" onclick="openBusinessModal()">
+                <span id="currentBusinessName">Business</span>
+                <span>▼</span>
+            </button>
+        </div>
+        <div class="header-status">
+            <span class="sync-indicator"></span>
+            <span id="syncStatus">Local mode</span>
+        </div>
+    </div>
+    
+    <!-- HOME PAGE -->
+    <div class="page active" id="homePage">
+        <div class="balance-container">
+            <div class="balance-card profit">
+                <div class="balance-label">Today's Profit</div>
+                <div class="balance-amount positive" id="todayProfit">₦0</div>
+            </div>
+            <div class="balance-card debt">
+                <div class="balance-label">Money Owed</div>
+                <div class="balance-amount negative" id="totalDebt">₦0</div>
+            </div>
+        </div>
+        
+        <div class="daily-summary">
+            <h3>📊 Today's Summary</h3>
+            <div class="daily-stats">
+                <div class="daily-stat">
+                    <div class="daily-stat-value" id="dailySales">0</div>
+                    <div class="daily-stat-label">Sales</div>
+                </div>
+                <div class="daily-stat">
+                    <div class="daily-stat-value" id="dailyPurchases">0</div>
+                    <div class="daily-stat-label">Purchases</div>
+                </div>
+                <div class="daily-stat">
+                    <div class="daily-stat-value" id="dailyTransactions">0</div>
+                    <div class="daily-stat-label">Transactions</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="quick-actions">
+            <div class="action-btn sell" onclick="openModal('sell')">
+                <div class="action-icon">💰</div>
+                <div class="action-text">I Sold</div>
+            </div>
+            <div class="action-btn buy" onclick="openModal('buy')">
+                <div class="action-icon">🛒</div>
+                <div class="action-text">I Bought</div>
+            </div>
+            <div class="action-btn voice" onclick="openVoiceModal()">
+                <div class="action-icon">🎤</div>
+                <div class="action-text">Tap & Speak</div>
+            </div>
+        </div>
+        
+        <div class="section-header">
+            <span>Today's Transactions</span>
+            <button class="share-btn" onclick="shareWhatsApp()">Share 📱</button>
+        </div>
+        
+        <div class="transaction-list" id="transactionList">
+            <div class="empty-state">No transactions today</div>
+        </div>
+        
+        <div class="section-header">
+            <span>Active Debtors</span>
+            <span style="color: #059669; cursor: pointer;" onclick="openDebtModal()">+ Add</span>
+        </div>
+        
+        <div class="debt-list" id="debtList">
+            <div class="empty-state">No active debts</div>
+        </div>
+    </div>
+    
+    <!-- HISTORY PAGE -->
+    <div class="page" id="historyPage">
+        <div class="section-header">
+            <span>All Transactions</span>
+        </div>
+        
+        <div class="filter-tabs">
+            <div class="filter-tab active" onclick="filterHistory('all')">All</div>
+            <div class="filter-tab" onclick="filterHistory('sell')">Sales</div>
+            <div class="filter-tab" onclick="filterHistory('buy')">Purchases</div>
+            <div class="filter-tab" onclick="filterHistory('debt')">Debts</div>
+        </div>
+        
+        <div id="historyList"></div>
+    </div>
+    
+    <!-- REPORTS PAGE -->
+    <div class="page" id="reportsPage">
+        <div class="section-header">
+            <span>Business Analytics</span>
+            <select id="reportPeriod" onchange="updateReports()" style="padding: 8px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="year">This Year</option>
+                <option value="custom">Custom Range</option>
+            </select>
+        </div>
+        
+        <div id="customDateRange" class="hidden" style="padding: 0 16px 16px;">
+            <div style="display: flex; gap: 12px;">
+                <input type="date" id="startDate" class="form-input" style="flex: 1;">
+                <input type="date" id="endDate" class="form-input" style="flex: 1;">
+                <button onclick="updateReports()" class="submit-btn" style="width: auto; padding: 12px 20px;">Go</button>
+            </div>
+        </div>
+        
+        <div class="analytics-grid">
+            <div class="analytics-card">
+                <div class="analytics-value" id="avgTransaction">₦0</div>
+                <div class="analytics-label">Avg Transaction</div>
+            </div>
+            <div class="analytics-card">
+                <div class="analytics-value" id="totalTransactions">0</div>
+                <div class="analytics-label">Total Count</div>
+            </div>
+            <div class="analytics-card">
+                <div class="analytics-value" id="bestDay">-</div>
+                <div class="analytics-label">Best Day</div>
+            </div>
+            <div class="analytics-card">
+                <div class="analytics-value" id="growthRate">0%</div>
+                <div class="analytics-label">Growth</div>
+            </div>
+        </div>
+        
+        <div class="report-card">
+            <div class="report-title">Total Sales</div>
+            <div class="report-value positive" id="reportSales">₦0</div>
+            <div class="stats-comparison" id="salesComparison"></div>
+        </div>
+        
+        <div class="report-card">
+            <div class="report-title">Total Expenses</div>
+            <div class="report-value negative" id="reportExpenses">₦0</div>
+            <div class="stats-comparison" id="expensesComparison"></div>
+        </div>
+        
+        <div class="report-card">
+            <div class="report-title">Net Profit</div>
+            <div class="report-value" id="reportProfit">₦0</div>
+            <div class="stats-comparison" id="profitComparison"></div>
+        </div>
+        
+        <div class="report-card">
+            <div class="report-title">Total Debts Owed</div>
+            <div class="report-value negative" id="reportDebts">₦0</div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-title">Revenue Trend</div>
+            <canvas id="revenueChart"></canvas>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-title">Sales vs Expenses</div>
+            <canvas id="comparisonChart"></canvas>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-title">Top Products/Services</div>
+            <canvas id="productsChart"></canvas>
+        </div>
+        
+        <button class="share-btn" onclick="shareReport()" style="width: calc(100% - 32px); margin: 0 16px 20px; padding: 16px; font-size: 16px;">
+            Share Full Report on WhatsApp
+        </button>
+    </div>
+    
+    <!-- Bottom Navigation -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="showPage('home')">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Home</span>
+        </div>
+        <div class="nav-item" onclick="showPage('history')">
+            <span class="nav-icon">📜</span>
+            <span class="nav-label">History</span>
+        </div>
+        <div class="nav-item" onclick="showPage('reports')">
+            <span class="nav-icon">📈</span>
+            <span class="nav-label">Analytics</span>
+        </div>
+    </div>
+    
+    <!-- Transaction Modal -->
+    <div class="modal" id="transactionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title" id="modalTitle">New Sale</span>
+                <button class="close-btn" onclick="closeModal()">×</button>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">What?</label>
+                <input type="text" class="form-input" id="itemName" placeholder="e.g., Bag of Rice">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Amount (₦)</label>
+                <input type="number" class="form-input" id="itemAmount" placeholder="0">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Category (Optional)</label>
+                <select class="form-select" id="itemCategory">
+                    <option value="">Select category...</option>
+                    <option value="food">Food & Groceries</option>
+                    <option value="electronics">Electronics</option>
+                    <option value="clothing">Clothing</option>
+                    <option value="services">Services</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            
+            <div class="checkbox-group">
+                <input type="checkbox" id="isDebt" onchange="toggleDebtName()">
+                <label for="isDebt">This is credit/debt</label>
+            </div>
+            
+            <div class="form-group hidden" id="debtNameGroup">
+                <label class="form-label">Person Name</label>
+                <input type="text" class="form-input" id="debtorName" placeholder="Who owes you?">
+            </div>
+            
+            <button class="submit-btn" onclick="saveTransaction()">Save Record</button>
+        </div>
+    </div>
+    
+    <!-- Voice Modal -->
+    <div class="modal" id="voiceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">🎤 Voice Entry</span>
+                <button class="close-btn" onclick="closeVoiceModal()">×</button>
+            </div>
+            
+            <p style="margin-bottom: 20px; color: #6b7280;">Say something like:<br><em>"Sold 5 bags of rice for twenty five thousand"</em><br><em>"Bought goods for ten thousand naira"</em></p>
+            
+            <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()">
+                <span>🎤</span>
+                <span id="voiceBtnText">Tap to Speak</span>
+            </button>
+            
+            <div id="voiceResult" style="margin-top: 20px; padding: 16px; background: #f3f4f6; border-radius: 12px; display: none;">
+                <strong>Heard:</strong> <span id="heardText"></span>
+                <div id="voiceParsed" style="margin-top: 8px; color: #059669; font-weight: 500;"></div>
+            </div>
+            
+            <button class="submit-btn hidden" id="voiceConfirmBtn" onclick="confirmVoiceTransaction()" style="margin-top: 16px;">
+                Confirm & Save
+            </button>
+        </div>
+    </div>
+    <!-- Debt Modal -->
+    <div class="modal" id="debtModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Add Debt Record</span>
+                <button class="close-btn" onclick="closeDebtModal()">×</button>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Person Name</label>
+                <input type="text" class="form-input" id="newDebtorName" placeholder="Enter name">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Amount (₦)</label>
+                <input type="number" class="form-input" id="newDebtAmount" placeholder="0">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <input type="text" class="form-input" id="newDebtDesc" placeholder="What was bought/sold?">
+            </div>
+            
+            <button class="submit-btn" onclick="saveDebt()">Save Debt</button>
+        </div>
+    </div>
+    
+    <!-- Debt Payment Modal -->
+    <div class="modal" id="paymentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Record Payment</span>
+                <button class="close-btn" onclick="closePaymentModal()">×</button>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Debtor</label>
+                <input type="text" class="form-input" id="paymentDebtorName" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Current Balance</label>
+                <input type="text" class="form-input" id="paymentCurrentBalance" readonly style="color: #dc2626; font-weight: bold;">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Payment Amount (₦)</label>
+                <input type="number" class="form-input" id="paymentAmount" placeholder="0">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Payment Method</label>
+                <select class="form-select" id="paymentMethod">
+                    <option value="cash">Cash</option>
+                    <option value="transfer">Bank Transfer</option>
+                    <option value="mobile">Mobile Money</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            
+            <button class="submit-btn" onclick="recordPayment()">Record Payment</button>
+            <button class="submit-btn secondary" onclick="clearFullDebt()" style="margin-top: 8px; background: #dc2626;">
+                Mark Fully Paid (Clear Debt)
+            </button>
+        </div>
+    </div>
+    
+    <!-- Debt History Modal -->
+    <div class="modal" id="debtHistoryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Payment History</span>
+                <button class="close-btn" onclick="closeDebtHistoryModal()">×</button>
+            </div>
+            
+            <div id="debtHistoryContent">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Business Switch Modal -->
+    <div class="modal" id="businessModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Switch Business</span>
+                <button class="close-btn" onclick="closeBusinessModal()">×</button>
+            </div>
+            
+            <div class="business-list" id="businessList">
+                <!-- Populated dynamically -->
+            </div>
+            
+            <button class="add-business-btn" onclick="showAddBusiness()">
+                + Add New Business
+            </button>
+            
+            <div id="addBusinessForm" class="hidden" style="margin-top: 16px;">
+                <div class="form-group">
+                    <input type="text" class="form-input" id="newBusinessName" placeholder="Business Name">
+                </div>
+                <div class="form-group">
+                    <select class="form-select" id="newBusinessType">
+                        <option value="retail">Retail Shop</option>
+                        <option value="wholesale">Wholesale</option>
+                        <option value="services">Services</option>
+                        <option value="food">Food/Restaurant</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <button class="submit-btn" onclick="addNewBusiness()">Create Business</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
 
+    <script>
+        // ==========================================
+        // CONFIGURATION & INITIALIZATION
+        // ==========================================
+        
+        // Firebase Config - REPLACE WITH YOUR KEYS
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        
+        // Initialize Firebase
+        let db;
+        let isOnline = false;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            isOnline = true;
+            document.getElementById('syncStatus').textContent = 'Cloud sync active';
+        } catch (e) {
+            console.log('Firebase not configured - using local storage only');
+            document.getElementById('syncStatus').textContent = 'Local mode only';
+        }
+        
+        // Data Management
+        let currentBusinessId = localStorage.getItem('currentBusinessId') || 'default';
+        let businesses = JSON.parse(localStorage.getItem('businesses')) || {
+            'default': {
+                id: 'default',
+                name: 'My Business',
+                type: 'retail',
+                created: Date.now()
+            }
+        };
+        
+        let transactions = [];
+        let debts = [];
+        let currentType = 'sell';
+        let recognition;
+        let voiceParsedData = null;
+        let charts = {};
+        
+        // Initialize Speech Recognition
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.lang = 'en-NG';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                processVoiceInput(transcript);
+            };
+            
+            recognition.onerror = function(event) {
+                showToast('Voice recognition error: ' + event.error);
+                document.getElementById('voiceBtn').classList.remove('listening');
+                document.getElementById('voiceBtnText').textContent = 'Tap to Speak';
+            };
+            
+            recognition.onend = function() {
+                document.getElementById('voiceBtn').classList.remove('listening');
+                document.getElementById('voiceBtnText').textContent = 'Tap to Speak';
+            };
+        }
+        
+        // ==========================================
+        // DATA OPERATIONS
+        // ==========================================
+        
+        function loadData() {
+            const businessKey = `business_${currentBusinessId}`;
+            transactions = JSON.parse(localStorage.getItem(`${businessKey}_transactions`)) || [];
+            debts = JSON.parse(localStorage.getItem(`${businessKey}_debts`)) || [];
+            
+            // Sync with Firebase if online
+            if (isOnline && db) {
+                const userId = getUserId();
+                db.ref(`users/${userId}/businesses/${currentBusinessId}`).on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        transactions = data.transactions || transactions;
+                        debts = data.debts || debts;
+                        saveLocal();
+                        renderAll();
+                    }
+                });
+            }
+            
+            updateBusinessDisplay();
+            renderAll();
+        }
+        
+        function saveData() {
+            saveLocal();
+            if (isOnline && db) {
+                const userId = getUserId();
+                db.ref(`users/${userId}/businesses/${currentBusinessId}`).set({
+                    transactions: transactions,
+                    debts: debts,
+                    lastUpdated: Date.now()
+                });
+            }
+        }
+        
+        function saveLocal() {
+            const businessKey = `business_${currentBusinessId}`;
+            localStorage.setItem(`${businessKey}_transactions`, JSON.stringify(transactions));
+            localStorage.setItem(`${businessKey}_debts`, JSON.stringify(debts));
+            localStorage.setItem('businesses', JSON.stringify(businesses));
+            localStorage.setItem('currentBusinessId', currentBusinessId);
+        }
+        
+        function getUserId() {
+            let userId = localStorage.getItem('userId');
+            if (!userId) {
+                userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('userId', userId);
+            }
+            return userId;
+        }
+        
+        // ==========================================
+        // RENDERING FUNCTIONS
+        // ==========================================
+        
+        function renderAll() {
+            renderTodaySummary();
+            renderTransactions();
+            renderDebts();
+            renderHistory();
+            updateReports();
+        }
+        
+        function renderTodaySummary() {
+            const today = new Date().toDateString();
+            const todayTrans = transactions.filter(t => new Date(t.date).toDateString() === today);
+            
+            const sales = todayTrans.filter(t => t.type === 'sell').reduce((sum, t) => sum + t.amount, 0);
+            const purchases = todayTrans.filter(t => t.type === 'buy').reduce((sum, t) => sum + t.amount, 0);
+            const profit = sales - purchases;
+            
+            document.getElementById('todayProfit').textContent = formatMoney(profit);
+            document.getElementById('dailySales').textContent = todayTrans.filter(t => t.type === 'sell').length;
+            document.getElementById('dailyPurchases').textContent = todayTrans.filter(t => t.type === 'buy').length;
+            document.getElementById('dailyTransactions').textContent = todayTrans.length;
+        }
+        
+        function renderTransactions() {
+            const today = new Date().toDateString();
+            const todayTrans = transactions
+                .filter(t => new Date(t.date).toDateString() === today)
+                .sort((a, b) => b.timestamp - a.timestamp);
+            
+            const list = document.getElementById('transactionList');
+            
+            if (todayTrans.length === 0) {
+                list.innerHTML = '<div class="empty-state">No transactions today</div>';
+                return;
+            }
+            
+            list.innerHTML = todayTrans.map(t => `
+                <div class="transaction-item">
+                    <div class="item-info">
+                        <h3>${t.name}</h3>
+                        <div class="item-meta">${formatTime(t.timestamp)} • ${t.category || 'Uncategorized'}</div>
+                    </div>
+                    <div class="item-amount ${t.type === 'sell' ? 'income' : 'expense'}">
+                        ${t.type === 'sell' ? '+' : '-'}${formatMoney(t.amount)}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function renderDebts() {
+            const activeDebts = debts.filter(d => d.balance > 0).sort((a, b) => b.timestamp - a.timestamp);
+            const list = document.getElementById('debtList');
+            
+            if (activeDebts.length === 0) {
+                list.innerHTML = '<div class="empty-state">No active debts</div>';
+                document.getElementById('totalDebt').textContent = '₦0';
+                return;
+            }
+            
+            const totalDebt = activeDebts.reduce((sum, d) => sum + d.balance, 0);
+            document.getElementById('totalDebt').textContent = formatMoney(totalDebt);
+            
+            list.innerHTML = activeDebts.map(d => `
+                <div class="debt-item" data-debt-id="${d.id}">
+                    <div class="item-info" style="flex: 1;">
+                        <h3>${d.name}</h3>
+                        <div class="item-meta">${d.description || 'No description'} • ${formatDate(d.timestamp)}</div>
+                    </div>
+                    <div class="item-amount negative">${formatMoney(d.balance)}</div>
+                    <div class="debt-actions">
+                        <button class="debt-btn pay" onclick="openPaymentModal('${d.id}')">Record Payment</button>
+                        <button class="debt-btn remind" onclick="remindDebtor('${d.id}')">Remind</button>
+                        <button class="debt-btn history" onclick="showDebtHistory('${d.id}')">History</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function renderHistory() {
+            const filter = document.querySelector('.filter-tab.active')?.textContent.toLowerCase() || 'all';
+            let filtered = transactions;
+            
+            if (filter === 'sales') filtered = transactions.filter(t => t.type === 'sell');
+            else if (filter === 'purchases') filtered = transactions.filter(t => t.type === 'buy');
+            else if (filter === 'debts') filtered = transactions.filter(t => t.isDebt);
+            
+            // Group by date
+            const grouped = {};
+            filtered.sort((a, b) => b.timestamp - a.timestamp).forEach(t => {
+                const date = new Date(t.date).toDateString();
+                if (!grouped[date]) grouped[date] = [];
+                grouped[date].push(t);
+            });
+            
+            const container = document.getElementById('historyList');
+            let html = '';
+            
+            Object.entries(grouped).forEach(([date, trans]) => {
+                const daySales = trans.filter(t => t.type === 'sell').reduce((sum, t) => sum + t.amount, 0);
+                const dayPurchases = trans.filter(t => t.type === 'buy').reduce((sum, t) => sum + t.amount, 0);
+                const dayProfit = daySales - dayPurchases;
+                
+                html += `
+                    <div class="date-header">
+                        <span>${formatDateHeader(date)}</span>
+                        <span class="date-total">Profit: ${formatMoney(dayProfit)}</span>
+                    </div>
+                `;
+                
+                html += trans.map(t => `
+                    <div class="transaction-item" style="margin: 0 16px 8px;">
+                        <div class="item-info">
+                            <h3>${t.name} ${t.isDebt ? '(Credit)' : ''}</h3>
+                            <div class="item-meta">${formatTime(t.timestamp)} • ${t.category || 'Uncategorized'}</div>
+                        </div>
+                        <div class="item-amount ${t.type === 'sell' ? 'income' : 'expense'}">
+                            ${t.type === 'sell' ? '+' : '-'}${formatMoney(t.amount)}
+                        </div>
+                    </div>
+                `).join('');
+            });
+            
+            container.innerHTML = html || '<div class="empty-state">No transactions found</div>';
+        }
+        
+        // ==========================================
+        // MODAL FUNCTIONS
+        // ==========================================
+        
+        function openModal(type) {
+            currentType = type;
+            document.getElementById('modalTitle').textContent = type === 'sell' ? 'New Sale' : 'New Purchase';
+            document.getElementById('transactionModal').classList.add('active');
+        }
+        
+        function closeModal() {
+            document.getElementById('transactionModal').classList.remove('active');
+            document.getElementById('itemName').value = '';
+            document.getElementById('itemAmount').value = '';
+            document.getElementById('itemCategory').value = '';
+            document.getElementById('isDebt').checked = false;
+            document.getElementById('debtorName').value = '';
+            document.getElementById('debtNameGroup').classList.add('hidden');
+        }
+        
+        function openVoiceModal() {
+            document.getElementById('voiceModal').classList.add('active');
+            document.getElementById('voiceResult').style.display = 'none';
+            document.getElementById('voiceConfirmBtn').classList.add('hidden');
+            voiceParsedData = null;
+        }
+        
+        function closeVoiceModal() {
+            if (recognition) recognition.stop();
+            document.getElementById('voiceModal').classList.remove('active');
+        }
+        
+        function openDebtModal() {
+            document.getElementById('debtModal').classList.add('active');
+        }
+        
+        function closeDebtModal() {
+            document.getElementById('debtModal').classList.remove('active');
+            document.getElementById('newDebtorName').value = '';
+            document.getElementById('newDebtAmount').value = '';
+            document.getElementById('newDebtDesc').value = '';
+        }
+        
+        function toggleDebtName() {
+            const isChecked = document.getElementById('isDebt').checked;
+            document.getElementById('debtNameGroup').classList.toggle('hidden', !isChecked);
+        }
+        // ==========================================
+        // TRANSACTION OPERATIONS
+        // ==========================================
+        
+        function saveTransaction() {
+            const name = document.getElementById('itemName').value.trim();
+            const amount = parseFloat(document.getElementById('itemAmount').value);
+            const category = document.getElementById('itemCategory').value;
+            const isDebt = document.getElementById('isDebt').checked;
+            const debtorName = document.getElementById('debtorName').value.trim();
+            
+            if (!name || !amount || amount <= 0) {
+                showToast('Please enter valid details');
+                return;
+            }
+            
+            if (isDebt && !debtorName) {
+                showToast('Please enter debtor name');
+                return;
+            }
+            
+            const transaction = {
+                id: 'trans_' + Date.now(),
+                name,
+                amount,
+                type: currentType,
+                category: category || 'Uncategorized',
+                isDebt,
+                debtorName: isDebt ? debtorName : null,
+                date: new Date().toISOString(),
+                timestamp: Date.now(),
+                businessId: currentBusinessId
+            };
+            
+            transactions.push(transaction);
+            
+            // If it's a debt, add to debts list
+            if (isDebt && debtorName) {
+                addOrUpdateDebt(debtorName, amount, name);
+            }
+            
+            saveData();
+            renderAll();
+            closeModal();
+            showToast('Transaction saved!');
+        }
+        
+        function addOrUpdateDebt(name, amount, description) {
+            const existing = debts.find(d => d.name.toLowerCase() === name.toLowerCase() && d.balance > 0);
+            
+            if (existing) {
+                existing.balance += amount;
+                existing.transactions.push({
+                    id: 'trans_' + Date.now(),
+                    amount: amount,
+                    description: description,
+                    date: new Date().toISOString(),
+                    type: 'added'
+                });
+                existing.lastUpdated = Date.now();
+            } else {
+                debts.push({
+                    id: 'debt_' + Date.now(),
+                    name: name,
+                    originalAmount: amount,
+                    balance: amount,
+                    description: description,
+                    transactions: [{
+                        id: 'trans_' + Date.now(),
+                        amount: amount,
+                        description: description,
+                        date: new Date().toISOString(),
+                        type: 'added'
+                    }],
+                    payments: [],
+                    timestamp: Date.now(),
+                    businessId: currentBusinessId
+                });
+            }
+        }
+        
+        function saveDebt() {
+            const name = document.getElementById('newDebtorName').value.trim();
+            const amount = parseFloat(document.getElementById('newDebtAmount').value);
+            const desc = document.getElementById('newDebtDesc').value.trim();
+            
+            if (!name || !amount) {
+                showToast('Please enter valid details');
+                return;
+            }
+            
+            addOrUpdateDebt(name, amount, desc || 'Manual entry');
+            saveData();
+            renderAll();
+            closeDebtModal();
+            showToast('Debt recorded!');
+        }
+        
+        // ==========================================
+        // DEBT PAYMENT FUNCTIONS
+        // ==========================================
+        
+        let currentDebtId = null;
+        
+        function openPaymentModal(debtId) {
+            currentDebtId = debtId;
+            const debt = debts.find(d => d.id === debtId);
+            if (!debt) return;
+            
+            document.getElementById('paymentDebtorName').value = debt.name;
+            document.getElementById('paymentCurrentBalance').value = formatMoney(debt.balance);
+            document.getElementById('paymentAmount').value = '';
+            document.getElementById('paymentModal').classList.add('active');
+        }
+        
+        function closePaymentModal() {
+            document.getElementById('paymentModal').classList.remove('active');
+            currentDebtId = null;
+        }
+        
+        function recordPayment() {
+            const amount = parseFloat(document.getElementById('paymentAmount').value);
+            const method = document.getElementById('paymentMethod').value;
+            
+            if (!amount || amount <= 0) {
+                showToast('Please enter valid amount');
+                return;
+            }
+            
+            const debt = debts.find(d => d.id === currentDebtId);
+            if (!debt) return;
+            
+            if (amount > debt.balance) {
+                showToast('Payment exceeds balance!');
+                return;
+            }
+            
+            debt.balance -= amount;
+            debt.payments.push({
+                id: 'pay_' + Date.now(),
+                amount: amount,
+                method: method,
+                date: new Date().toISOString(),
+                timestamp: Date.now()
+            });
+            debt.lastUpdated = Date.now();
+            
+            // Add as income transaction
+            transactions.push({
+                id: 'trans_' + Date.now(),
+                name: `Payment from ${debt.name}`,
+                amount: amount,
+                type: 'sell',
+                category: 'Debt Payment',
+                isDebt: false,
+                date: new Date().toISOString(),
+                timestamp: Date.now(),
+                businessId: currentBusinessId
+            });
+            
+            saveData();
+            renderAll();
+            closePaymentModal();
+            showToast(`Payment recorded! Balance: ${formatMoney(debt.balance)}`);
+        }
+        
+        function clearFullDebt() {
+            const debt = debts.find(d => d.id === currentDebtId);
+            if (!debt) return;
+            
+            if (!confirm(`Mark ${debt.name} as fully paid? Current balance: ${formatMoney(debt.balance)}`)) {
+                return;
+            }
+            
+            // Record final payment
+            const finalAmount = debt.balance;
+            debt.payments.push({
+                id: 'pay_' + Date.now(),
+                amount: finalAmount,
+                method: 'full_clearance',
+                date: new Date().toISOString(),
+                timestamp: Date.now(),
+                note: 'Debt fully cleared'
+            });
+            
+            // Add as income
+            if (finalAmount > 0) {
+                transactions.push({
+                    id: 'trans_' + Date.now(),
+                    name: `Full payment from ${debt.name}`,
+                    amount: finalAmount,
+                    type: 'sell',
+                    category: 'Debt Payment',
+                    isDebt: false,
+                    date: new Date().toISOString(),
+                    timestamp: Date.now(),
+                    businessId: currentBusinessId
+                });
+            }
+            
+            debt.balance = 0;
+            debt.cleared = true;
+            debt.clearedDate = new Date().toISOString();
+            
+            saveData();
+            renderAll();
+            closePaymentModal();
+            showToast('Debt cleared successfully!');
+        }
+        
+        function showDebtHistory(debtId) {
+            const debt = debts.find(d => d.id === debtId);
+            if (!debt) return;
+            
+            let html = `
+                <div style="margin-bottom: 20px;">
+                    <h3 style="font-size: 18px; margin-bottom: 8px;">${debt.name}</h3>
+                    <p style="color: #6b7280; font-size: 14px;">Original: ${formatMoney(debt.originalAmount)} | Current: ${formatMoney(debt.balance)}</p>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <h4 style="font-size: 14px; color: #6b7280; margin-bottom: 12px; text-transform: uppercase;">Transactions</h4>
+            `;
+            
+            debt.transactions.forEach(t => {
+                html += `
+                    <div class="payment-history-item">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>${t.description}</span>
+                            <span style="color: #dc2626; font-weight: bold;">+${formatMoney(t.amount)}</span>
+                        </div>
+                        <div class="payment-history-date">${formatDate(t.date)}</div>
+                    </div>
+                `;
+            });
+            
+            html += `</div><div><h4 style="font-size: 14px; color: #6b7280; margin-bottom: 12px; text-transform: uppercase;">Payments</h4>`;
+            
+            if (debt.payments.length === 0) {
+                html += '<p style="color: #9ca3af; font-size: 14px;">No payments recorded</p>';
+            } else {
+                debt.payments.forEach(p => {
+                    html += `
+                        <div class="payment-history-item">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>${p.method === 'full_clearance' ? '✓ Full Payment' : `Payment (${p.method})`}</span>
+                                <span class="payment-history-amount">-${formatMoney(p.amount)}</span>
+                            </div>
+                            <div class="payment-history-date">${formatDate(p.date)}</div>
+                        </div>
+                    `;
+                });
+            }
+            
+            html += '</div>';
+            
+            document.getElementById('debtHistoryContent').innerHTML = html;
+            document.getElementById('debtHistoryModal').classList.add('active');
+        }
+        
+        function closeDebtHistoryModal() {
+            document.getElementById('debtHistoryModal').classList.remove('active');
+        }
+        
+        function remindDebtor(debtId) {
+            const debt = debts.find(d => d.id === debtId);
+            if (!debt) return;
+            
+            const message = `Hello ${debt.name}, this is a friendly reminder that you have an outstanding balance of ${formatMoney(debt.balance)}. Please let me know when you can make a payment. Thank you!`;
+            
+            // Try WhatsApp first, then SMS
+            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+            window.open(whatsappUrl, '_blank');
+        }
+        
+        // ==========================================
+        // VOICE RECOGNITION
+        // ==========================================
+        
+        function toggleVoice() {
+            if (!recognition) {
+                showToast('Voice recognition not supported');
+                return;
+            }
+            
+            const btn = document.getElementById('voiceBtn');
+            const isListening = btn.classList.contains('listening');
+            
+            if (isListening) {
+                recognition.stop();
+                btn.classList.remove('listening');
+                document.getElementById('voiceBtnText').textContent = 'Tap to Speak';
+            } else {
+                recognition.start();
+                btn.classList.add('listening');
+                document.getElementById('voiceBtnText').textContent = 'Listening...';
+            }
+        }
+        
+        function processVoiceInput(transcript) {
+            document.getElementById('heardText').textContent = transcript;
+            document.getElementById('voiceResult').style.display = 'block';
+            
+            // Parse voice input
+            const lower = transcript.toLowerCase();
+            let type = 'sell';
+            let name = '';
+            let amount = 0;
+            
+            // Determine type
+            if (lower.includes('bought') || lower.includes('buy') || lower.includes('purchase')) {
+                type = 'buy';
+            }
+            
+            // Extract amount - handle various formats
+            const amountPatterns = [
+                /(\d+)\s*thousand/g,
+                /(\d+)\s*k/g,
+                /(\d{1,3}(?:,\d{3})*)/g,
+                /(\d+)/g
+            ];
+            
+            for (let pattern of amountPatterns) {
+                const matches = [...lower.matchAll(pattern)];
+                if (matches.length > 0) {
+                    const lastMatch = matches[matches.length - 1][1];
+                    amount = parseInt(lastMatch.replace(/,/g, ''));
+                    if (lower.includes('thousand') || lower.includes('k')) amount *= 1000;
+                    break;
+                }
+            }
+            
+            // Extract item name
+            const itemPatterns = [
+                /(?:sold|bought|buy|sold)\s+(.+?)\s+(?:for|at|worth)/i,
+                /(?:sold|bought|buy|sold)\s+(.+?)\s+\d/i,
+                /(.+?)\s+(?:for|at|worth)/i
+            ];
+            
+            for (let pattern of itemPatterns) {
+                const match = transcript.match(pattern);
+                if (match) {
+                    name = match[1].trim();
+                    break;
+                }
+            }
+            
+            // Default name if not found
+            if (!name) name = type === 'sell' ? 'Sale' : 'Purchase';
+            
+            voiceParsedData = { type, name, amount };
+            
+            document.getElementById('voiceParsed').innerHTML = `
+                Type: ${type === 'sell' ? 'Sale' : 'Purchase'}<br>
+                Item: ${name}<br>
+                Amount: ${formatMoney(amount)}
+            `;
+            
+            document.getElementById('voiceConfirmBtn').classList.remove('hidden');
+        }
+        
+        function confirmVoiceTransaction() {
+            if (!voiceParsedData) return;
+            
+            const { type, name, amount } = voiceParsedData;
+            
+            if (amount <= 0) {
+                showToast('Could not determine amount. Please try again.');
+                return;
+            }
+            
+            currentType = type;
+            document.getElementById('itemName').value = name;
+            document.getElementById('itemAmount').value = amount;
+            
+            closeVoiceModal();
+            openModal(type);
+            showToast('Voice data filled. Confirm to save.');
+        }
+        
+        // ==========================================
+        // BUSINESS SWITCHING
+        // ==========================================
+        
+        function updateBusinessDisplay() {
+            const business = businesses[currentBusinessId];
+            document.getElementById('currentBusinessName').textContent = business ? business.name : 'Business';
+        }
+        
+        function openBusinessModal() {
+            const list = document.getElementById('businessList');
+            list.innerHTML = Object.values(businesses).map(b => `
+                <div class="business-item ${b.id === currentBusinessId ? 'active' : ''}" onclick="switchBusiness('${b.id}')">
+                    <div class="business-item-info">
+                        <h4>${b.name}</h4>
+                        <p>${b.type} • Created ${formatDate(b.created)}</p>
+                    </div>
+                    ${b.id === currentBusinessId ? '<span style="color: #059669;">✓</span>' : ''}
+                </div>
+            `).join('');
+            
+            document.getElementById('addBusinessForm').classList.add('hidden');
+            document.getElementById('businessModal').classList.add('active');
+        }
+        
+        function closeBusinessModal() {
+            document.getElementById('businessModal').classList.remove('active');
+        }
+        
+        function switchBusiness(businessId) {
+            currentBusinessId = businessId;
+            loadData();
+            closeBusinessModal();
+            showToast(`Switched to ${businesses[businessId].name}`);
+        }
+        
+        function showAddBusiness() {
+            document.getElementById('addBusinessForm').classList.remove('hidden');
+        }
+        
+        function addNewBusiness() {
+            const name = document.getElementById('newBusinessName').value.trim();
+            const type = document.getElementById('newBusinessType').value;
+            
+            if (!name) {
+                showToast('Please enter business name');
+                return;
+            }
+            
+            const id = 'biz_' + Date.now();
+            businesses[id] = {
+                id,
+                name,
+                type,
+                created: Date.now()
+            };
+            
+            saveLocal();
+            switchBusiness(id);
+            closeBusinessModal();
+            showToast('Business created!');
+        }
+        // ==========================================
+        // ANALYTICS & REPORTS
+        // ==========================================
+        
+        function updateReports() {
+            const period = document.getElementById('reportPeriod').value;
+            let startDate, endDate;
+            
+            const now = new Date();
+            
+            if (period === 'week') {
+                startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                endDate = now;
+            } else if (period === 'month') {
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                endDate = now;
+            } else if (period === 'year') {
+                startDate = new Date(now.getFullYear(), 0, 1);
+                endDate = now;
+            } else if (period === 'custom') {
+                document.getElementById('customDateRange').classList.remove('hidden');
+                const startVal = document.getElementById('startDate').value;
+                const endVal = document.getElementById('endDate').value;
+                if (!startVal || !endVal) return;
+                startDate = new Date(startVal);
+                endDate = new Date(endVal);
+            } else {
+                document.getElementById('customDateRange').classList.add('hidden');
+            }
+            
+            // Filter transactions
+            const filtered = transactions.filter(t => {
+                const tDate = new Date(t.date);
+                return tDate >= startDate && tDate <= endDate;
+            });
+            
+            const sales = filtered.filter(t => t.type === 'sell').reduce((sum, t) => sum + t.amount, 0);
+            const expenses = filtered.filter(t => t.type === 'buy').reduce((sum, t) => sum + t.amount, 0);
+            const profit = sales - expenses;
+            const totalDebts = debts.filter(d => d.balance > 0).reduce((sum, d) => sum + d.balance, 0);
+            
+            // Update main cards
+            document.getElementById('reportSales').textContent = formatMoney(sales);
+            document.getElementById('reportExpenses').textContent = formatMoney(expenses);
+            document.getElementById('reportProfit').textContent = formatMoney(profit);
+            document.getElementById('reportProfit').className = 'report-value ' + (profit >= 0 ? 'positive' : 'negative');
+            document.getElementById('reportDebts').textContent = formatMoney(totalDebts);
+            
+            // Analytics stats
+            const avgTransaction = filtered.length > 0 ? sales / filtered.filter(t => t.type === 'sell').length : 0;
+            document.getElementById('avgTransaction').textContent = formatMoney(avgTransaction);
+            document.getElementById('totalTransactions').textContent = filtered.length;
+            
+            // Best day calculation
+            const dailyTotals = {};
+            filtered.filter(t => t.type === 'sell').forEach(t => {
+                const date = new Date(t.date).toDateString();
+                dailyTotals[date] = (dailyTotals[date] || 0) + t.amount;
+            });
+            const bestDay = Object.entries(dailyTotals).sort((a, b) => b[1] - a[1])[0];
+            document.getElementById('bestDay').textContent = bestDay ? formatDate(bestDay[0]) : '-';
+            
+            // Growth rate (compare to previous period)
+            const prevStart = new Date(startDate.getTime() - (endDate - startDate));
+            const prevFiltered = transactions.filter(t => {
+                const tDate = new Date(t.date);
+                return tDate >= prevStart && tDate < startDate;
+            });
+            const prevSales = prevFiltered.filter(t => t.type === 'sell').reduce((sum, t) => sum + t.amount, 0);
+            const growth = prevSales > 0 ? ((sales - prevSales) / prevSales * 100).toFixed(1) : 0;
+            const growthEl = document.getElementById('growthRate');
+            growthEl.textContent = (growth > 0 ? '+' : '') + growth + '%';
+            growthEl.style.color = growth >= 0 ? '#059669' : '#dc2626';
+            
+            // Comparisons
+            updateComparison('salesComparison', sales, prevSales);
+            updateComparison('expensesComparison', expenses, prevFiltered.filter(t => t.type === 'buy').reduce((sum, t) => sum + t.amount, 0));
+            updateComparison('profitComparison', profit, prevSales - prevFiltered.filter(t => t.type === 'buy').reduce((sum, t) => sum + t.amount, 0));
+            
+            // Render charts
+            renderCharts(filtered, startDate, endDate);
+        }
+        
+        function updateComparison(elementId, current, previous) {
+            const el = document.getElementById(elementId);
+            if (!previous) {
+                el.innerHTML = '<span>No previous data</span>';
+                return;
+            }
+            const diff = ((current - previous) / previous * 100).toFixed(1);
+            const isPositive = diff >= 0;
+            el.innerHTML = `<span class="${isPositive ? 'positive' : 'negative'}">${isPositive ? '↑' : '↓'} ${Math.abs(diff)}% vs previous period</span>`;
+        }
+        
+        function renderCharts(filtered, startDate, endDate) {
+            // Destroy existing charts
+            Object.values(charts).forEach(c => c.destroy());
+            
+            // Revenue Trend Chart
+            const dailyData = {};
+            const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+            for (let i = 0; i <= days; i++) {
+                const d = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
+                dailyData[d.toDateString()] = { sales: 0, expenses: 0 };
+            }
+            
+            filtered.forEach(t => {
+                const date = new Date(t.date).toDateString();
+                if (dailyData[date]) {
+                    if (t.type === 'sell') dailyData[date].sales += t.amount;
+                    else dailyData[date].expenses += t.amount;
+                }
+            });
+            
+            const labels = Object.keys(dailyData).map(d => formatShortDate(d));
+            const salesData = Object.values(dailyData).map(d => d.sales);
+            const expenseData = Object.values(dailyData).map(d => d.expenses);
+            
+            const ctx1 = document.getElementById('revenueChart').getContext('2d');
+            charts.revenue = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Sales',
+                        data: salesData,
+                        borderColor: '#059669',
+                        backgroundColor: 'rgba(5, 150, 105, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+            
+            // Sales vs Expenses Chart
+            const ctx2 = document.getElementById('comparisonChart').getContext('2d');
+            charts.comparison = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Sales', data: salesData, backgroundColor: '#059669' },
+                        { label: 'Expenses', data: expenseData, backgroundColor: '#dc2626' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+            
+            // Top Products Chart
+            const productTotals = {};
+            filtered.forEach(t => {
+                const key = t.name;
+                productTotals[key] = (productTotals[key] || 0) + t.amount;
+            });
+            
+            const sortedProducts = Object.entries(productTotals)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+            
+            const ctx3 = document.getElementById('productsChart').getContext('2d');
+            charts.products = new Chart(ctx3, {
+                type: 'doughnut',
+                data: {
+                    labels: sortedProducts.map(p => p[0]),
+                    datasets: [{
+                        data: sortedProducts.map(p => p[1]),
+                        backgroundColor: ['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { boxWidth: 12 } }
+                    }
+                }
+            });
+        }
+        
+        // ==========================================
+        // NAVIGATION & UTILITIES
+        // ==========================================
+        
+        function showPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            
+            document.getElementById(page + 'Page').classList.add('active');
+            event.target.closest('.nav-item').classList.add('active');
+            
+            if (page === 'reports') updateReports();
+        }
+        
+        function filterHistory(type) {
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            renderHistory();
+        }
+        
+        function shareWhatsApp() {
+            const today = new Date().toDateString();
+            const todayTrans = transactions.filter(t => new Date(t.date).toDateString() === today);
+            const sales = todayTrans.filter(t => t.type === 'sell').reduce((sum, t) => sum + t.amount, 0);
+            const purchases = todayTrans.filter(t => t.type === 'buy').reduce((sum, t) => sum + t.amount, 0);
+            
+            const message = `*Daily Report - ${businesses[currentBusinessId].name}*\n\n` +
+                `Date: ${formatDate(today)}\n` +
+                `Sales: ${formatMoney(sales)}\n` +
+                `Purchases: ${formatMoney(purchases)}\n` +
+                `Profit: ${formatMoney(sales - purchases)}\n\n` +
+                `Generated by My Book Pro`;
+            
+            window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+        }
+        
+        function shareReport() {
+            const period = document.getElementById('reportPeriod').value;
+            const sales = document.getElementById('reportSales').textContent;
+            const expenses = document.getElementById('reportExpenses').textContent;
+            const profit = document.getElementById('reportProfit').textContent;
+            const debts = document.getElementById('reportDebts').textContent;
+            
+            const message = `*Business Report - ${businesses[currentBusinessId].name}*\n\n` +
+                `Period: ${period}\n` +
+                `Total Sales: ${sales}\n` +
+                `Total Expenses: ${expenses}\n` +
+                `Net Profit: ${profit}\n` +
+                `Outstanding Debts: ${debts}\n\n` +
+                `Generated by My Book Pro 📒`;
+            
+            window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+        }
+        
+        // ==========================================
+        // UTILITY FUNCTIONS
+        // ==========================================
+        
+        function formatMoney(amount) {
+            return '₦' + amount.toLocaleString('en-NG');
+        }
+        
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-NG', { 
+                day: 'numeric', 
+                month: 'short', 
+                year: 'numeric' 
+            });
+        }
+        
+        function formatShortDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-NG', { 
+                day: 'numeric', 
+                month: 'short' 
+            });
+        }
+        
+        function formatDateHeader(dateString) {
+            const date = new Date(dateString);
+            const today = new Date();
+            const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+            
+            if (date.toDateString() === today.toDateString()) return 'Today';
+            if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+            
+            return date.toLocaleDateString('en-NG', { 
+                weekday: 'long',
+                day: 'numeric', 
+                month: 'long'
+            });
+        }
+        
+        function formatTime(timestamp) {
+            return new Date(timestamp).toLocaleTimeString('en-NG', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
+        
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+        
+        // ==========================================
+        // INITIALIZATION
+        // ==========================================
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+            
+            // Register Service Worker
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.log('Service Worker registration failed'));
+            }
+            
+            // Set default dates for custom range
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('endDate').value = today;
+            const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            document.getElementById('startDate').value = lastWeek;
+        });
+        
+        // Handle online/offline
+        window.addEventListener('online', () => {
+            showToast('Back online - syncing data...');
+            if (db) {
+                document.getElementById('syncStatus').textContent = 'Cloud sync active';
+                saveData();
+            }
+        });
+        
+        window.addEventListener('offline', () => {
+            showToast('Offline mode - changes saved locally');
+            document.getElementById('syncStatus').textContent = 'Offline mode';
+        });
+    </script>
+</body>
+</html>
