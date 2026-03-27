@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mybook-v2';
+const CACHE_NAME = 'My Book Pro';
 const urlsToCache = [
     './',
     './index.html',
